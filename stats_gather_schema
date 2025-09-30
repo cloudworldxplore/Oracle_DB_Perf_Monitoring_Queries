@@ -1,0 +1,45 @@
+## To Gather Stats for Entire Schema
+
+BEGIN
+  DBMS_STATS.UNLOCK_SCHEMA_STATS(ownname => 'APP_SCHEMA');
+  DBMS_STATS.GATHER_SCHEMA_STATS(
+    ownname          => 'APP_SCHEMA',
+    ESTIMATE_PERCENT => DBMS_STATS.AUTO_SAMPLE_SIZE, -- Automatically determine the sample size
+    METHOD_OPT       => 'FOR ALL COLUMNS SIZE AUTO', -- Collect histograms for all columns as needed
+    DEGREE           => DBMS_STATS.AUTO_DEGREE,     -- Automatically determine the degree of parallelism
+    GRANULARITY      => 'AUTO',                     -- Collect statistics at the most appropriate level
+    CASCADE          => TRUE                        -- Gather statistics for dependent objects (e.g., indexes)
+  );
+  DBMS_STATS.LOCK_SCHEMA_STATS(ownname => 'APP_SCHEMA');
+  end;
+
+## To Gather Stats for Single table in a Schema.
+
+BEGIN
+DBMS_STATS.GATHER_TABLE_STATS (
+ownname => 'APP_SCHEMA',
+tabname => 'APP_TABLE',
+cascade => true, ---- For collecting stats for respective indexes
+method_opt=>'for all indexed columns size 1',
+granularity => 'ALL',
+estimate_percent =>dbms_stats.auto_sample_size,
+degree => 8);
+END;
+/
+
+## To Gather Stats for Single Partition of a table.
+
+
+BEGIN
+DBMS_STATS.GATHER_TABLE_STATS (
+ownname => 'APP_SCHEMA',
+tabname => 'APP_TABLE', --- TABLE NAME
+partname => 'APP_TABLE_PART_SEPT2025' --- PARTITOIN NAME
+method_opt=>'for all indexed columns size 1',
+GRANULARITY => 'APPROX_GLOBAL AND PARTITION',
+degree => 8);
+END;
+/
+
+
+
