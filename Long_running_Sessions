@@ -1,0 +1,56 @@
+# To Identify the Long Running Sessions on the database: 
+
+SET LINESIZE 200
+COLUMN sid FORMAT 9999
+COLUMN serial# FORMAT 9999999
+COLUMN machine FORMAT A30
+COLUMN progress_pct FORMAT 99999999.00
+COLUMN elapsed FORMAT A10
+COLUMN remaining FORMAT A10
+ 
+SELECT s.inst_id,
+       s.sid,
+       s.serial#,
+       s.username,
+       s.module,
+       ROUND(sl.elapsed_seconds/60) || ':' || MOD(sl.elapsed_seconds,60) elapsed,
+       ROUND(sl.time_remaining/60) || ':' || MOD(sl.time_remaining,60) remaining,
+       ROUND(sl.sofar/sl.totalwork*100, 2) progress_pct
+FROM   gv$session s,
+       gv$session_longops sl
+WHERE  s.sid     = sl.sid
+AND    s.inst_id = sl.inst_id
+AND    s.serial# = sl.serial#
+AND sl.time_remaining > 0;
+
+
+## To Check more details on the SID's reported above with message: 
+
+set linesize 300
+column target format a30
+column message format a80
+select s.SID,s.serial#,l.INST_ID,ROUND(SOFAR/TOTALWORK*100,2) "%COMPLETED", 100-ROUND(SOFAR/TOTALWORK*100,2) "%LEFT",message
+from gv$session_longops l, gv$session s
+where l.sid=s.sid and l.serial# = s.serial#
+and sofar<totalwork
+And s.sid in ('&sid')
+order by totalwork;
+
+## To check the Details of the session like SID, Machine Info, Event, SQL ID, User information: 
+
+set lines 1000 
+set pages 1000
+col machine for a30
+col username for a20
+col TO_CHAR(LOGON_TIME,'DD-MM-YYHH24:MM:SS') for a20
+col osuser for a15
+col EVENT for a40
+select inst_id,sid,serial#,status,username,module,machine,osuser,to_char(logon_time,'DD-MM-YY HH24:MM:SS'),event,sql_id from gv$session where sid='&sid';
+
+## If Any SQL ID is shown, check the SQL Text against it.
+
+SQL> select sql_fulltext from gV$sql where sql_id='&SQL_ID';
+
+-- Other Way to check the Long running sessions excluding aggregate in OPNAME
+
+SELECT SID, SERIAL#,OPNAME, CONTEXT, SOFAR, TOTALWORK,ROUND(SOFAR/TOTALWORK*100,2) "%_COMPLETE" FROM GV$SESSION_LONGOPS WHERE OPNAME NOT LIKE '%aggregate%' AND TOTALWORK != 0 AND SOFAR <> TOTALWORK;
