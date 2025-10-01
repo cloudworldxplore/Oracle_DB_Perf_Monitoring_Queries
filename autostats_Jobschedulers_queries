@@ -1,0 +1,73 @@
+## Check the Autotask clients if enabled or not on the DB:
+
+select client_name,status from dba_autotask_client;
+
+
+## To check the Scheduled windows for the above clients:
+
+col WINDOW_NAME for a17
+col NEXT_RUN for a20
+col ACTIVE for a6
+col OPTIMIZER_STATS for a15
+col SEGMENT_ADVISOR for a15
+col SQL_TUNE_ADVISOR for a16
+col HEALTH_MONITOR for a15
+SELECT WINDOW_NAME,TO_CHAR(WINDOW_NEXT_TIME,'DD-MM-YYYY HH24:MI:SS') NEXT_RUN,AUTOTASK_STATUS STATUS,WINDOW_ACTIVE ACTIVE,OPTIMIZER_STATS,SEGMENT_ADVISOR,SQL_TUNE_ADVISOR FROM DBA_AUTOTASK_WINDOW_CLIENTS;
+
+## To check the Job History and Job name for the specific client:
+
+select JOB_NAME,JOB_STATUS, window_name, window_start_time, window_duration FROM dba_autotask_job_history where client_name='auto optimizer stats collection';
+
+##
+column client_name format a35
+column job_status format a10
+column job_start_time format a20
+column job_duration format a20
+SELECT client_name, job_status, to_char(job_start_time,'DD-MON-YYYY hh24:mi') job_start_time, job_duration
+FROM dba_autotask_job_history
+WHERE trunc(job_start_time) >= trunc (sysdate-5)
+order by job_start_time;
+
+## To check the Job run details and see if any errors: ( Change the JOb name according to your need )
+
+col LOG_DATE for a30
+col OWNER for a10
+col job_name for a30
+col STATUS for a15
+col ACTUAL_START_DATE for a35
+col RUN_DURATION for a10
+col ADDITIONAL_INFO for a35
+col ERRORS for a10
+set lines 200
+select LOG_DATE,OWNER,JOB_NAME,STATUS, ERROR#,ACTUAL_START_DATE,RUN_DURATION,ADDITIONAL_INFO,ERRORS from dba_scheduler_job_run_details where job_name like 'ORA$AT_OS_OPT_SY%' order by ACTUAL_START_DATE;
+
+
+##### Scheduled JOBS #####
+
+select distinct job_name, state from dba_scheduler_jobs;
+ 
+set lines 300
+col JOB_NAME for a30
+col JOB_ACTION for a50
+col JOB_FREQUENCY for a30
+col LAST_START_DATE for a30
+col NEXT_RUN_DATE for a30
+col RUN_COUNT for 99999
+col REPEAT_INTERVAL for a10
+select job_action, job_name, REPEAT_INTERVAL,ENABLED,STATE,RUN_COUNT,FAILURE_COUNT,LAST_START_DATE,NEXT_RUN_DATE,COMMENTS from dba_scheduler_jobs;
+ 
+ ## For more detials
+
+col LOG_DATE for a30
+col OWNER for a10
+col job_name for a30
+col STATUS for a15
+col ACTUAL_START_DATE for a35
+col RUN_DURATION for a10
+col ADDITIONAL_INFO for a35
+col ERRORS for a10
+set lines 200
+select LOG_DATE,OWNER,JOB_NAME,STATUS, ERROR#,ACTUAL_START_DATE,RUN_DURATION,ADDITIONAL_INFO,ERRORS from dba_scheduler_job_run_details;
+
+
+ 
