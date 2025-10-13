@@ -1,0 +1,125 @@
+--Monitor the Job Status using dba_datapump_jobs:
+
+set linesize 200
+set pagesize 200
+col owner_name format a12
+col job_name format a20
+col operation format a12
+col job_mode format a20
+SELECT 
+owner_name, 
+job_name, 
+operation, 
+job_mode, 
+state 
+FROM 
+dba_datapump_jobs
+where 
+state='EXECUTING';
+
+--To Check the overall jobs with different Job state from the same View :
+
+SELECT owner_name, job_name, operation, job_mode,
+state, attached_sessions
+FROM dba_datapump_jobs;
+
+-- To check the Percentage completion of the job and Identify the current Operation name:
+
+SELECT 
+OPNAME, 
+SID, 
+SERIAL#, 
+CONTEXT, 
+SOFAR, 
+TOTALWORK,
+    ROUND(SOFAR/TOTALWORK*100,2) "%_COMPLETE"
+FROM 
+V$SESSION_LONGOPS
+WHERE 
+OPNAME in
+(
+select 
+d.job_name
+from 
+v$session s, 
+v$process p, 
+dba_datapump_sessions d
+where 
+p.addr=s.paddr 
+and 
+s.saddr=d.saddr
+)
+AND 
+OPNAME NOT LIKE '%aggregate%'
+AND 
+TOTALWORK != 0
+AND 
+SOFAR <> TOTALWORK;
+
+
+SELECT sl.sid, sl.serial#, sl.sofar, sl.totalwork, dp.owner_name, dp.state, dp.job_mode
+FROM v$session_longops sl, v$datapump_job dp
+WHERE sl.opname = dp.job_name
+AND sl.sofar != sl.totalwork;
+
+SELECT SID, SERIAL#, opname, SOFAR, TOTALWORK,
+ROUND(SOFAR/TOTALWORK*100,2) COMPLETE
+FROM V$SESSION_LONGOPS
+WHERE TOTALWORK != 0 AND SOFAR != TOTALWORK
+order by 1;
+
+
+-- To check the Wait Event and Wait time:
+
+SELECT   w.sid, w.event, w.seconds_in_wait
+   FROM   V$SESSION s, DBA_DATAPUMP_SESSIONS d, V$SESSION_WAIT w
+    WHERE   s.saddr = d.saddr AND s.sid = w.sid;
+
+-- Pull more Details of the SID Listed above:
+
+set lines 1000 
+set pages 1000
+col machine for a30
+col username for a20
+col TO_CHAR(LOGON_TIME,'DD-MM-YYHH24:MM:SS') for a20
+col osuser for a15
+col EVENT for a40
+select inst_id,sid,serial#,status,username,module,machine,osuser,to_char(logon_time,'DD-MM-YY HH24:MM:SS'),event,sql_id from gv$session where sid='&sid';
+
+-- To check Orphaned Job:
+
+SET lines 140
+COL owner_name FORMAT a10;
+COL job_name FORMAT a20
+COL state FORMAT a12 
+COL operation LIKE owner_name
+COL job_mode LIKE owner_name
+SELECT owner_name, job_name, operation, job_mode,
+state, attached_sessions
+FROM dba_datapump_jobs;
+
+-- To check if any errors in the job and waiting state. We can check the reason of the wait from dba_resumable:
+
+col sql_text for a30
+col error_msg for a30
+select user_id, session_id, status, start_time, suspend_time, sql_text, error_number,
+ error_msg
+ from dba_resumable;
+
+ -- From the Import or Export job log or from the dba_datapump_job details. Get the job name to check the status by directly attaching to the job:
+
+ # impdp attach=SYS.SYS_IMPORT_FULL_01
+
+ username: / as sysdba    < May give this when prompted for credentials
+
+ --Same Method Applies for Export Job Status check as well
+
+ # expdp attach=SYS.SYS_EXPORT_FULL_01   << The Job name changed In your case.
+
+username: / as sysdba    < May give this when prompted for credentials
+ 
+
+ 
+
+    
+
