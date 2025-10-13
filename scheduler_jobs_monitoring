@@ -1,0 +1,119 @@
+
+## Verify the Scheduled JOb and we can filter the job name using where clause:
+
+Select distinct job_name from dba_scheduler_jobs;
+
+set lines 300
+col JOB_NAME for a30
+col JOB_ACTION for a50
+col JOB_FREQUENCY for a30
+col LAST_START_DATE for a30
+col NEXT_RUN_DATE for a30
+col RUN_COUNT for 99999
+col REPEAT_INTERVAL for a10
+select owner,job_name, job_action, REPEAT_INTERVAL,ENABLED,STATE,RUN_COUNT,FAILURE_COUNT,LAST_START_DATE,NEXT_RUN_DATE from dba_scheduler_jobs 
+where job_name in ('<SCHEDULED_JOB_NAME>');
+
+## To Check the Job Run details as per the scheduled time and Errors reported if any along with run duration.
+
+col LOG_DATE for a30
+col OWNER for a10
+col job_name for a30
+col STATUS for a15
+col ACTUAL_START_DATE for a35
+col RUN_DURATION for a10
+col ADDITIONAL_INFO for a35
+col ERRORS for a10
+set lines 200
+select LOG_DATE,OWNER,JOB_NAME,STATUS, ERROR#,ACTUAL_START_DATE,RUN_DURATION,ADDITIONAL_INFO,ERRORS from dba_scheduler_job_run_details;
+
+## Scheduler JOb log details to check if JOb is stopped, manually triggerred or any more errors reported. 
+
+select LOG_DATE,OWNER,JOB_NAME,OPERATION,STATUS,DESTINATION,ADDITIONAL_INFO from dba_scheduler_job_log where job_name like '<SCHEDULED_JOB_NAME>';
+
+## To Monitor the Current Running JObs: 
+
+SELECT owner, job_name, Job_subname, DETACHED, session_id, running_instance, elapsed_time FROM dba_scheduler_running_jobs;
+
+## This is to verify the Schedules for Scheduler Jobs:
+
+set pagesize 200
+set lines 299
+col START_DATE for a45
+col REPEAT_INTERVAL for a45
+col schedule_name for a34
+select schedule_name, schedule_type, start_date, repeat_interval from dba_scheduler_schedules;
+
+## To check the Windows of those schedulers
+
+set pagesize 300 linesize 200
+select * from dba_scheduler_windows;
+
+## TO STOP A JOB:
+
+exec DBMS_SCHEDULER.stop_JOB (job_name => '<OWNER>.<JOB_NAME>');
+
+## TO DROP A JOB:
+
+exec DBMS_SCHEDULER.drop_JOB (job_name => '<OWNER>.<JOB_NAME>',force=>true);
+
+## To get the JOB scheduled Date and Next Run details In IST from EST:
+
+select
+'db name : ' ||   ora_database_name || CHR(10) ||
+'job : ' ||   job_name || CHR(10) ||
+-- 'end_date : ' ||     end_date|| CHR(10) ||
+'comments : ' ||     comments|| CHR(10) ||
+-- 'START_DATE: ' || start_date || chr(10) ||
+'Next Run date EST: ' || next_run_date || chr(10) ||
+'Next Run date IST: ' || to_char(SYS_EXTRACT_UTC(next_run_date) + (5.5/24), 'DD-MON-YY HH:MI:SS PM') || chr(10) ||
+'State: ' || state || chr(10) job_dtl
+from dba_scheduler_jobs
+where job_name like 'JOB_NAME_%';
+
+
+###### IF NEED TO RUN ANY SCHEDULED JOB MANUALLY using Bash Script in the BACKGROUND: 
+
+-- create a file at OS level as below and modify the job details accordingly in the below procedure given:
+$  vi manual_run.sh
+
+-- The below is the procedure to pick the JOb and run it
+manualrun()
+{
+      sqlplus / as sysdba <<EOF>> $LOGFILE
+       select name from v\$database;
+       select sid,serial#, username from v\$session where sid in (select sid from v\$mystat where rownum < 2);
+EXEC DBMS_SCHEDULER.RUN_JOB (job_name        => '<SCHEDULED_JOB_NAME>');
+EOF
+}
+DATE=`date '+%y-%m-%d-%H:%M:%S'`; export DATE
+LOGFILE=`echo $ORACLE_SID`_$DATE.log
+manualrun
+
+-- Save the above file. Give ppermissions to the file and run as below.
+-- # chmod +x manual_run.sh
+-- # nohup ./manual_run.sh > nohup_manual_run.out &
+
+
+#####
+
+## To Check the Scheduler JObs from the Container Level of all the PDB jobs: 
+
+select CON_ID, JOB_NAME,JOB_TYPE,ENABLED, STATE,NEXT_RUN_DATE, REPEAT_INTERVAL from cdb_scheduler_jobs;
+
+select
+'db name : ' ||   CON_ID_TO_CON_NAME(con_id) || CHR(10) ||
+'job : ' ||   job_name || CHR(10) 
+from cdb_scheduler_jobs
+where job_name like 'JOB_NAME_%';
+
+## This will list the JOB names with their respective PDB names:
+
+select
+'db name : ' ||   p.PDB_NAME || CHR(10) ||
+'job : ' ||   job_name || CHR(10) 
+from cdb_scheduler_jobs s join cdb_PDBS p on p.PDB_ID = s.con_id
+where job_name like 'JOB_NAME_%';
+
+
+
